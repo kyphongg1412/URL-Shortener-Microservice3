@@ -6,30 +6,37 @@ body {
 	color: #222;
 	background-color: #ECF0F1;
 	text-align: center;
-}
-
-.container {
+  }
+  
+  .container {
 	padding: 0;
 	margin-top: 40px;
-}
-
-.footer {
+  }
+  
+  .footer {
 	margin-top: 60px;
-}
-
-ol {
-	list-style-position: inside;
-}
-ul {
-	list-style-type: none;
-}
-
-a {
+  }
+  
+  a {
 	color: #2574A9;
-}
-/****** Logo Div Styling ******/
-
-img {
-	margin: 20px auto 0 auto;
+  }
+  
+  input {
 	display: block;
-}
+	position: relative;
+	margin: 10px auto;
+  }
+  
+  input#button {
+	width: 230px;
+  }
+  
+  .view {
+	position:relative;
+	margin: auto;
+	margin-top: 40px;
+	border: 1px  solid  #aaa;
+	padding: 20px;
+	width: 60%;
+	min-width: 400px;
+  }
