@@ -1,56 +1,89 @@
-var express = require('express');
-var cors = require('cors');
-require('dotenv').config()
-var bodyParser = require('body-parser')
-var app = express();
-const multer = require('multer'); 
+require('dotenv').config();
+const express = require('express');
+const cors = require('cors');
+const app = express();
+const mongoose = require('mongoose');
+let bodyParser = require('body-parser');
+const dns = require('node:dns');
 
-const fs = require('fs');
 
-const uploadDir = 'uploads';
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir);
-}
+mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
+  .then(() => console.log('Connected to MongoDB'))
+  .catch(err => console.error('Failed to connect to MongoDB', err));
+
+  const URLSchema = new mongoose.Schema({
+    original_url: {type: String, required: true, unique: true},
+    short_url: {type: String, required: true, unique: true}
+  })
+
+  const URLModel = mongoose.model('url', URLSchema);
+
+const port = process.env.PORT || 3000;
 
 app.use(cors());
-app.use('/public', express.static(process.cwd() + '/public'));
-// parse application/x-www-form-urlencoded
-app.use(bodyParser.urlencoded({ extended: false }))
-// parse application/json
-app.use(bodyParser.json())
+app.use(express.json());
+app.use(express.urlencoded({extended : true}))
 
-// Cấu hình Multer
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    // Đường dẫn lưu trữ tệp
-    cb(null, 'uploads/');
-  },
-  filename: function (req, file, cb) {
-    // Đặt tên tệp
-    cb(null, file.originalname);
-  }
-});
+app.use('/public', express.static(`${process.cwd()}/public`));
 
-// Tạo middleware Multer
-const upload = multer({ storage: storage });
-
-// Sử dụng middleware Multer trong tuyến đường
-// 'upfile' ở đây là key name trong file tạo biểu mẫu html
-app.post('/api/fileanalyse', upload.single('upfile'), (req, res) => {
-    let file = req.file; // Đúng
-    console.log(file);
-    res.json({
-      name: file.originalname,
-      type: file.mimetype,
-      size: file.size
-    });
-  });
-
-app.get('/', function (req, res) {
+app.get('/', function(req, res) {
   res.sendFile(process.cwd() + '/views/index.html');
 });
 
-const port = process.env.PORT || 3000;
-app.listen(port, function () {
-  console.log('Your app is listening on port ' + port)
+
+app.get('/api/shorturl/:short_url', function(req, res) {
+  let short_url = req.params.short_url; 
+  URLModel.findOne({short_url: short_url}).then( (foundURL) => {
+    if(foundURL){
+      let original_url = foundURL.original_url;
+      res.redirect(original_url);
+    } else {
+      res.json({message: "The short url does not exist!"})
+      }
+  })
+})
+
+app.post('/api/shorturl', (req,res) => {
+   let url = req.body.url;
+  try{
+    urlObj = new URL(url);
+    console.log(urlObj);
+
+
+    dns.lookup(urlObj.hostname, (err, address, family) => {
+      if(!address){
+        res.json({error: 'Invalid url'})
+      } else {
+        let original_url = urlObj.href;
+
+        URLModel.findOne({original_url: original_url}).then( (foundURL) => {
+          if(foundURL) {
+            res.redirect(foundURL.original_url);
+          } else {
+              let short_url = 1;
+                URLModel.find({}).sort({short_url: 'desc'}).limit(1).then( (lastestURL) => {
+                    if(lastestURL.length > 0) {
+                      short_url = parseInt(lastestURL[0].short_url) + 1;
+                    }
+                    resObj = {
+                      original_url: original_url,
+                      short_url: short_url
+                    }            
+                      let newURL = new URLModel(resObj);
+                      newURL.save();
+                      res.json(resObj);
+                      console.log(resObj)
+                  })
+            }
+        })
+      }
+     })
+  }
+  catch{
+    res.json({error: 'Invalid url'})
+  }
+})
+
+app.listen(port, function() {
+  console.log(`Listening on port ${port}`);
 });
